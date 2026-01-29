@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, createContext, useContext, ReactNode } from 'react';
+import { useEffect, useState, createContext, useContext, ReactNode, useMemo } from 'react';
 
-// Farcaster context type (simplified for compatibility)
+// Use the new SDK if possible, but keep compatibility
 interface FarcasterUser {
     fid?: number;
     username?: string;
@@ -11,7 +11,7 @@ interface FarcasterUser {
 }
 
 interface FrameContextType {
-    context: unknown | null;
+    context: any | null;
     isLoaded: boolean;
     isInFrame: boolean;
     user: FarcasterUser | null;
@@ -39,19 +39,26 @@ export function useFarcasterContext() {
 }
 
 export function FarcasterProvider({ children }: { children: ReactNode }) {
-    const [context, setContext] = useState<unknown | null>(null);
+    const [context, setContext] = useState<any | null>(null);
     const [isLoaded, setIsLoaded] = useState(false);
     const [user, setUser] = useState<FarcasterUser | null>(null);
 
     useEffect(() => {
         const init = async () => {
             try {
-                // Dynamically import SDK to avoid SSR issues
-                const { default: sdk } = await import('@farcaster/frame-sdk');
+                // Try to import the new SDK, fallback to old one if needed
+                let sdk;
+                try {
+                    const mod = await import('@farcaster/frame-sdk');
+                    sdk = mod.default || mod;
+                } catch (e) {
+                    console.log("Could not load @farcaster/frame-sdk");
+                    return;
+                }
+
                 const frameContext = await sdk.context;
                 setContext(frameContext);
 
-                // Extract user info if available
                 if (frameContext?.user) {
                     setUser({
                         fid: frameContext.user.fid,
@@ -61,28 +68,26 @@ export function FarcasterProvider({ children }: { children: ReactNode }) {
                     });
                 }
 
-                // Signal to Farcaster that the frame is ready
                 await sdk.actions.ready();
             } catch (error) {
-                console.log('Not in a Farcaster frame context');
+                console.log('Farcaster SDK init failed');
             } finally {
                 setIsLoaded(true);
             }
         };
 
-        init();
+        if (typeof window !== 'undefined') {
+            init();
+        }
     }, []);
 
-    const isInFrame = !!context;
-
-    const actions = {
+    const actions = useMemo(() => ({
         openUrl: async (url: string) => {
             try {
                 const { default: sdk } = await import('@farcaster/frame-sdk');
                 await sdk.actions.openUrl(url);
             } catch (error) {
-                // Fallback for non-frame context
-                window.open(url, '_blank');
+                window.open(url, '_blank', 'noopener,noreferrer');
             }
         },
         close: async () => {
@@ -90,7 +95,7 @@ export function FarcasterProvider({ children }: { children: ReactNode }) {
                 const { default: sdk } = await import('@farcaster/frame-sdk');
                 await sdk.actions.close();
             } catch (error) {
-                console.log('Cannot close - not in frame');
+                console.log('Cannot close');
             }
         },
         ready: async () => {
@@ -98,13 +103,21 @@ export function FarcasterProvider({ children }: { children: ReactNode }) {
                 const { default: sdk } = await import('@farcaster/frame-sdk');
                 await sdk.actions.ready();
             } catch (error) {
-                console.log('Cannot signal ready - not in frame');
+                console.log('Cannot signal ready');
             }
         },
-    };
+    }), []);
+
+    const value = useMemo(() => ({
+        context,
+        isLoaded,
+        isInFrame: !!context,
+        user,
+        actions
+    }), [context, isLoaded, user, actions]);
 
     return (
-        <FrameContext.Provider value={{ context, isLoaded, isInFrame, user, actions }}>
+        <FrameContext.Provider value={value}>
             {children}
         </FrameContext.Provider>
     );

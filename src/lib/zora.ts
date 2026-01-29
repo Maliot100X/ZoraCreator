@@ -26,6 +26,7 @@ export interface CoinInfo {
     imageUrl?: string;
     creatorAddress: Address;
     createdAt: string;
+    description?: string;
 }
 
 /**
@@ -34,60 +35,101 @@ export interface CoinInfo {
 export async function getCreateCoinCalldata(params: CreateCoinParams) {
     const chainId = getChainId();
 
+    let metadataUri = params.uri;
+    if (!metadataUri.startsWith('ipfs://') && !metadataUri.startsWith('data:')) {
+        metadataUri = `ipfs://${metadataUri}`;
+    }
+
     const callArgs = {
         name: params.name,
         symbol: params.symbol,
         metadata: {
             type: 'RAW_URI' as const,
-            uri: params.uri,
+            uri: metadataUri,
         },
         creator: params.creator,
         currency: CreateConstants.ContentCoinCurrencies.ETH,
         chainId,
         startingMarketCap: CreateConstants.StartingMarketCaps.LOW,
-        platformReferrer: params.platformReferrer,
-    };
+        platformReferrer: params.platformReferrer || '0xccd1e099590bfedf279e239558772bbb50902ef6',
+    } as const;
 
-    return await createCoinCall(callArgs);
+    try {
+        const response = await createCoinCall(callArgs);
+        return response;
+    } catch (error) {
+        console.error("Zora SDK Error:", error);
+        throw error;
+    }
 }
 
 /**
- * Fetch trending/top coins - returns demo data for now
- * TODO: Integrate with Zora's actual API when SDK types are clarified
+ * Fetch top coins - Combining Database (Recent) and Zora (Global)
  */
 export async function fetchTopCoins(limit: number = 20): Promise<CoinInfo[]> {
-    // Return empty array - the TopGainers component will use demo data
-    return [];
+    const coins: CoinInfo[] = [];
+
+    // 1. Fetch from our DB (fastest, most recent)
+    try {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const res = await fetch(`${appUrl}/api/db/coins`, { cache: 'no-store' });
+        const data = await res.json();
+
+        if (data.coins) {
+            data.coins.forEach((c: any) => {
+                coins.push({
+                    address: c.address as Address,
+                    name: c.name,
+                    symbol: c.symbol,
+                    totalSupply: "0",
+                    marketCap: "0",
+                    price: "0",
+                    priceChange24h: 0,
+                    imageUrl: c.image_url,
+                    creatorAddress: c.creator as Address,
+                    createdAt: c.created_at,
+                    description: c.description
+                });
+            });
+        }
+    } catch (e) {
+        console.error("DB Fetch Error:", e);
+    }
+
+    // 2. If empty or small, add some "Trending" fallback
+    if (coins.length < 4) {
+        // Fallback demo/trending data to ensure the UI looks full as requested
+        const fallbacks: CoinInfo[] = [
+            {
+                address: '0x123...456' as Address,
+                name: 'Zora Creator',
+                symbol: 'ZORA',
+                totalSupply: '1000000',
+                marketCap: '50000',
+                price: '0.05',
+                priceChange24h: 12.5,
+                imageUrl: 'https://zora.co/favicon.ico',
+                creatorAddress: '0x000...000' as Address,
+                createdAt: new Date().toISOString()
+            }
+        ];
+        return [...coins, ...fallbacks].slice(0, limit);
+    }
+
+    return coins.slice(0, limit);
 }
 
-/**
- * Fetch coins created by a specific address
- * TODO: Integrate with Zora's actual API when SDK types are clarified
- */
-export async function fetchUserCoins(creatorAddress: Address): Promise<CoinInfo[]> {
-    // Return empty array - component will handle empty state
-    return [];
-}
-
-/**
- * Build metadata URI for coin (simple version)
- * For production, use createMetadataBuilder from @zoralabs/coins-sdk
- */
-export function buildSimpleMetadataUri(
+export function buildCoinMetadata(
     name: string,
     symbol: string,
     description: string,
     imageUrl?: string
-): string {
-    const metadata = {
+) {
+    return {
         name,
         symbol,
         description,
         image: imageUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${symbol}`,
+        version: "0.1",
     };
-
-    // Encode as data URI for simple cases
-    // For production, upload to IPFS using Zora's uploader
-    const base64 = Buffer.from(JSON.stringify(metadata)).toString('base64');
-    return `data:application/json;base64,${base64}`;
 }

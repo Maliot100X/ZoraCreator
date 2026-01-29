@@ -1,165 +1,83 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CoinCard, CoinCardSkeleton } from './CoinCard';
-import { CoinInfo } from '@/lib/zora';
-import { TrendingUp, RefreshCw } from 'lucide-react';
-
-// Demo data for when API is not available
-const DEMO_COINS: CoinInfo[] = [
-    {
-        address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-        name: 'Degen Token',
-        symbol: 'DEGEN',
-        totalSupply: '1000000000000000000000000',
-        marketCap: '5234567',
-        price: '0.005234',
-        priceChange24h: 12.5,
-        imageUrl: 'https://api.dicebear.com/7.x/shapes/svg?seed=DEGEN',
-        creatorAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-        createdAt: new Date().toISOString(),
-    },
-    {
-        address: '0x2345678901234567890123456789012345678901' as `0x${string}`,
-        name: 'Based Chad',
-        symbol: 'CHAD',
-        totalSupply: '1000000000000000000000000',
-        marketCap: '3456789',
-        price: '0.003456',
-        priceChange24h: -5.2,
-        imageUrl: 'https://api.dicebear.com/7.x/shapes/svg?seed=CHAD',
-        creatorAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-        createdAt: new Date().toISOString(),
-    },
-    {
-        address: '0x3456789012345678901234567890123456789012' as `0x${string}`,
-        name: 'Moon Rocket',
-        symbol: 'MOON',
-        totalSupply: '1000000000000000000000000',
-        marketCap: '2345678',
-        price: '0.002345',
-        priceChange24h: 23.8,
-        imageUrl: 'https://api.dicebear.com/7.x/shapes/svg?seed=MOON',
-        creatorAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-        createdAt: new Date().toISOString(),
-    },
-    {
-        address: '0x4567890123456789012345678901234567890123' as `0x${string}`,
-        name: 'Diamond Hands',
-        symbol: 'DIAMOND',
-        totalSupply: '1000000000000000000000000',
-        marketCap: '1987654',
-        price: '0.001987',
-        priceChange24h: 8.9,
-        imageUrl: 'https://api.dicebear.com/7.x/shapes/svg?seed=DIAMOND',
-        creatorAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-        createdAt: new Date().toISOString(),
-    },
-    {
-        address: '0x5678901234567890123456789012345678901234' as `0x${string}`,
-        name: 'Pepe Classic',
-        symbol: 'PEPE',
-        totalSupply: '1000000000000000000000000',
-        marketCap: '1654321',
-        price: '0.001654',
-        priceChange24h: -2.1,
-        imageUrl: 'https://api.dicebear.com/7.x/shapes/svg?seed=PEPE',
-        creatorAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-        createdAt: new Date().toISOString(),
-    },
-    {
-        address: '0x6789012345678901234567890123456789012345' as `0x${string}`,
-        name: 'Wojak Finance',
-        symbol: 'WOJAK',
-        totalSupply: '1000000000000000000000000',
-        marketCap: '1234567',
-        price: '0.001234',
-        priceChange24h: 15.3,
-        imageUrl: 'https://api.dicebear.com/7.x/shapes/svg?seed=WOJAK',
-        creatorAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-        createdAt: new Date().toISOString(),
-    },
-];
+import { CoinCard } from './CoinCard';
+import { CoinInfo, fetchTopCoins } from '@/lib/zora';
+import { RefreshCw, TrendingUp, Sparkles } from 'lucide-react';
 
 export function TopGainers() {
     const [coins, setCoins] = useState<CoinInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchCoins = async () => {
+    const loadCoins = async () => {
         setIsLoading(true);
         setError(null);
-
         try {
-            // Try to fetch from API, fall back to demo data
-            const response = await fetch('/api/coins');
-            if (response.ok) {
-                const data = await response.json();
-                setCoins(data.coins || []);
-            } else {
-                // Use demo data
-                setCoins(DEMO_COINS);
-            }
+            const data = await fetchTopCoins();
+            setCoins(data);
         } catch (err) {
-            // Use demo data on error
-            setCoins(DEMO_COINS);
+            console.error('Error loading coins:', err);
+            setError('Failed to load coins. Please refresh.');
         } finally {
             setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchCoins();
+        loadCoins();
     }, []);
 
     return (
-        <section className="py-8">
-            {/* Section Header */}
-            <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                        <TrendingUp className="w-6 h-6 text-white" />
+        <section className="py-12 relative overflow-hidden">
+            <div className="container mx-auto px-4 relative z-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
+                            <TrendingUp className="w-6 h-6 text-purple-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-2">
+                                RECENT LAUNCHES
+                                <div className="px-2 py-0.5 rounded text-[10px] bg-green-500/20 text-green-400 border border-green-500/30">LIVE</div>
+                            </h2>
+                            <p className="text-white/50 font-medium">Trending tokens being born on Zora & Base</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-2xl font-bold text-white">Top Gainers</h2>
-                        <p className="text-white/50 text-sm">Trending coins on Base</p>
-                    </div>
+
+                    <button
+                        onClick={loadCoins}
+                        disabled={isLoading}
+                        className="self-start px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 transition-all flex items-center gap-2 group disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                        {isLoading ? 'Refreshing...' : 'Refresh Feed'}
+                    </button>
                 </div>
 
-                <button
-                    onClick={fetchCoins}
-                    disabled={isLoading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-all disabled:opacity-50"
-                >
-                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    Refresh
-                </button>
-            </div>
-
-            {/* Error State */}
-            {error && (
-                <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
-                    {error}
-                </div>
-            )}
-
-            {/* Coins Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {isLoading ? (
-                    // Loading skeletons
-                    Array.from({ length: 6 }).map((_, i) => (
-                        <CoinCardSkeleton key={i} />
-                    ))
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                            <div key={i} className="aspect-[4/5] rounded-3xl bg-white/5 animate-pulse border border-white/10" />
+                        ))}
+                    </div>
                 ) : coins.length > 0 ? (
-                    // Coin cards
-                    coins.map((coin, index) => (
-                        <CoinCard key={coin.address} coin={coin} rank={index + 1} />
-                    ))
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {coins.map((coin) => (
+                            <CoinCard key={coin.address} coin={coin} />
+                        ))}
+                    </div>
                 ) : (
-                    // Empty state
-                    <div className="col-span-full text-center py-12">
-                        <p className="text-white/50 text-lg">No coins found</p>
-                        <p className="text-white/30 text-sm mt-2">Be the first to launch a token!</p>
+                    <div className="py-20 text-center rounded-3xl bg-white/5 border border-white/10 border-dashed">
+                        <Sparkles className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                        <h3 className="text-xl font-bold text-white mb-2">No Tokens Found Yet</h3>
+                        <p className="text-white/40 mb-6">Be the first one to launch a token today!</p>
+                        <a
+                            href="/launch"
+                            className="inline-flex items-center justify-center px-8 py-3 rounded-2xl bg-purple-600 text-white font-bold hover:bg-purple-500 transition-all"
+                        >
+                            Start Launching
+                        </a>
                     </div>
                 )}
             </div>

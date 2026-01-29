@@ -1,139 +1,113 @@
 'use client';
 
-import { TrendingUp, TrendingDown, ExternalLink } from 'lucide-react';
+import { Address } from 'viem';
 import { CoinInfo } from '@/lib/zora';
-import { formatEther } from 'viem';
+import { TrendingUp, BarChart3, User, Calendar, ExternalLink } from 'lucide-react';
 
 interface CoinCardProps {
     coin: CoinInfo;
-    rank?: number;
 }
 
-export function CoinCard({ coin, rank }: CoinCardProps) {
-    const priceChangePositive = coin.priceChange24h >= 0;
-
-    // Format market cap for display
-    const formatMarketCap = (value: string) => {
-        const num = parseFloat(value);
-        if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
-        if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
-        if (num >= 1e3) return `$${(num / 1e3).toFixed(2)}K`;
-        return `$${num.toFixed(2)}`;
+export function CoinCard({ coin }: CoinCardProps) {
+    const formatCurrency = (val: string) => {
+        const numeric = parseFloat(val);
+        if (isNaN(numeric) || numeric === 0) return '$0.00';
+        if (numeric < 0.01) return '<$0.01';
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            maximumFractionDigits: 2,
+        }).format(numeric);
     };
 
-    // Format price
-    const formatPrice = (value: string) => {
-        const num = parseFloat(value);
-        if (num < 0.0001) return `$${num.toExponential(2)}`;
-        if (num < 1) return `$${num.toFixed(6)}`;
-        return `$${num.toFixed(4)}`;
-    };
+    const isPositive = coin.priceChange24h >= 0;
 
     return (
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/10 hover:border-purple-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10">
-            {/* Gradient Background Effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 via-transparent to-pink-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-            {/* Rank Badge */}
-            {rank && (
-                <div className="absolute top-3 left-3 w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
-                    {rank}
+        <div className="group relative rounded-3xl bg-gradient-to-b from-white/10 to-transparent border border-white/10 p-5 hover:border-purple-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/10 flex flex-col h-full">
+            <div className="relative aspect-square rounded-2xl overflow-hidden mb-5 bg-black/40">
+                <img
+                    src={coin.imageUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${coin.symbol}`}
+                    alt={coin.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                />
+                <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 flex items-center gap-1.5">
+                    <TrendingUp className={`w-3 h-3 ${isPositive ? 'text-green-400' : 'text-red-400'}`} />
+                    <span className={`text-[10px] font-black ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                        {isPositive ? '+' : ''}{coin.priceChange24h.toFixed(2)}%
+                    </span>
                 </div>
-            )}
+            </div>
 
-            <div className="relative p-5">
-                {/* Header */}
-                <div className="flex items-start gap-4 mb-4">
-                    {/* Token Image */}
-                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex-shrink-0">
-                        {coin.imageUrl ? (
-                            <img
-                                src={coin.imageUrl}
-                                alt={coin.name}
-                                className="w-full h-full object-cover"
-                            />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-purple-400">
-                                {coin.symbol.charAt(0)}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Token Info */}
-                    <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-white truncate group-hover:text-purple-300 transition-colors">
-                            {coin.name}
-                        </h3>
-                        <p className="text-white/50 text-sm font-medium">
-                            ${coin.symbol}
-                        </p>
-                    </div>
-
-                    {/* Price Change */}
-                    <div className={`
-            flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-medium
-            ${priceChangePositive
-                            ? 'bg-green-500/20 text-green-400'
-                            : 'bg-red-500/20 text-red-400'
-                        }
-          `}>
-                        {priceChangePositive ? (
-                            <TrendingUp className="w-3.5 h-3.5" />
-                        ) : (
-                            <TrendingDown className="w-3.5 h-3.5" />
-                        )}
-                        {Math.abs(coin.priceChange24h).toFixed(2)}%
-                    </div>
+            <div className="flex-1">
+                <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-xl font-black text-white truncate leading-tight">{coin.name}</h3>
+                    <span className="text-[10px] font-bold bg-white/10 text-white/60 px-2 py-0.5 rounded uppercase tracking-wider">
+                        ${coin.symbol}
+                    </span>
                 </div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="bg-white/5 rounded-xl p-3">
-                        <p className="text-white/40 text-xs mb-1">Price</p>
-                        <p className="text-white font-semibold">
-                            {formatPrice(coin.price)}
-                        </p>
+                {coin.description && (
+                    <p className="text-xs text-white/50 mb-4 line-clamp-2 leading-relaxed italic">
+                        "{coin.description}"
+                    </p>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
+                        <p className="text-[10px] font-bold text-white/30 uppercase mb-1">Price</p>
+                        <p className="text-sm font-black text-white">{formatCurrency(coin.price)}</p>
                     </div>
-                    <div className="bg-white/5 rounded-xl p-3">
-                        <p className="text-white/40 text-xs mb-1">Market Cap</p>
-                        <p className="text-white font-semibold">
-                            {formatMarketCap(coin.marketCap)}
-                        </p>
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
+                        <p className="text-[10px] font-bold text-white/30 uppercase mb-1">Mkt Cap</p>
+                        <p className="text-sm font-black text-white">{formatCurrency(coin.marketCap)}</p>
                     </div>
                 </div>
+            </div>
 
-                {/* Action Button */}
+            <div className="space-y-2 mt-auto">
                 <a
-                    href={`https://zora.co/coin/base:${coin.address}`}
+                    href={`https://zora.co/collect/base:${coin.address}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold transition-all group-hover:shadow-lg group-hover:shadow-purple-500/25"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-white text-black font-black hover:bg-white/90 transition-all text-sm"
                 >
-                    Trade
-                    <ExternalLink className="w-4 h-4" />
+                    <BarChart3 className="w-4 h-4" />
+                    TRADE ON ZORA
                 </a>
+
+                <div className="flex items-center justify-between px-2 py-1">
+                    <div className="flex items-center gap-1.5 opacity-40">
+                        <User className="w-3 h-3 text-white" />
+                        <span className="text-[10px] font-bold text-white uppercase truncate max-w-[80px]">
+                            {coin.creatorAddress?.slice(0, 6)}...{coin.creatorAddress?.slice(-4)}
+                        </span>
+                    </div>
+                    <a
+                        href={`https://basescan.org/address/${coin.address}`}
+                        target="_blank"
+                        className="opacity-40 hover:opacity-100 transition-opacity"
+                    >
+                        <ExternalLink className="w-3 h-3 text-white" />
+                    </a>
+                </div>
             </div>
         </div>
     );
 }
 
-// Loading skeleton for coin cards
 export function CoinCardSkeleton() {
     return (
-        <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/10 p-5 animate-pulse">
-            <div className="flex items-start gap-4 mb-4">
-                <div className="w-14 h-14 rounded-xl bg-white/10" />
-                <div className="flex-1">
-                    <div className="h-5 w-24 bg-white/10 rounded mb-2" />
-                    <div className="h-4 w-16 bg-white/10 rounded" />
+        <div className="rounded-3xl bg-white/5 border border-white/10 p-5 flex flex-col h-full animate-pulse">
+            <div className="relative aspect-square rounded-2xl bg-white/5 mb-5" />
+            <div className="flex-1">
+                <div className="h-6 bg-white/5 rounded-lg w-3/4 mb-2" />
+                <div className="h-4 bg-white/5 rounded-lg w-full mb-4" />
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="h-12 bg-white/5 rounded-xl" />
+                    <div className="h-12 bg-white/5 rounded-xl" />
                 </div>
-                <div className="h-7 w-16 bg-white/10 rounded-lg" />
             </div>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="h-16 bg-white/5 rounded-xl" />
-                <div className="h-16 bg-white/5 rounded-xl" />
-            </div>
-            <div className="h-12 bg-white/10 rounded-xl" />
+            <div className="h-10 bg-white/5 rounded-xl w-full" />
         </div>
     );
 }
