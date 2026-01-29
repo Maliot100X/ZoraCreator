@@ -2,7 +2,6 @@
 
 import { useEffect, useState, createContext, useContext, ReactNode, useMemo } from 'react';
 
-// Use the new SDK if possible, but keep compatibility
 interface FarcasterUser {
     fid?: number;
     username?: string;
@@ -45,63 +44,72 @@ export function FarcasterProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const init = async () => {
+            if (typeof window === 'undefined') return;
+
             try {
-                // Try to import the new SDK, fallback to old one if needed
-                let sdk;
-                try {
-                    const mod = await import('@farcaster/frame-sdk');
-                    sdk = mod.default || mod;
-                } catch (e) {
-                    console.log("Could not load @farcaster/frame-sdk");
-                    return;
+                // Bypass TS with any for the dynamic SDK
+                const sdkModule = await import('@farcaster/frame-sdk').catch(() => null);
+                const sdk = (sdkModule?.default || sdkModule) as any;
+
+                if (sdk && sdk.context) {
+                    const frameContext = await sdk.context;
+                    setContext(frameContext);
+
+                    if (frameContext?.user) {
+                        setUser({
+                            fid: frameContext.user.fid,
+                            username: frameContext.user.username,
+                            displayName: frameContext.user.displayName,
+                            pfpUrl: frameContext.user.pfpUrl,
+                        });
+                    }
+
+                    if (sdk.actions && sdk.actions.ready) {
+                        await sdk.actions.ready();
+                    }
                 }
-
-                const frameContext = await sdk.context;
-                setContext(frameContext);
-
-                if (frameContext?.user) {
-                    setUser({
-                        fid: frameContext.user.fid,
-                        username: frameContext.user.username,
-                        displayName: frameContext.user.displayName,
-                        pfpUrl: frameContext.user.pfpUrl,
-                    });
-                }
-
-                await sdk.actions.ready();
             } catch (error) {
-                console.log('Farcaster SDK init failed');
+                console.warn('Farcaster SDK init failed');
             } finally {
                 setIsLoaded(true);
             }
         };
 
-        if (typeof window !== 'undefined') {
-            init();
-        }
+        init();
     }, []);
 
     const actions = useMemo(() => ({
         openUrl: async (url: string) => {
             try {
-                const { default: sdk } = await import('@farcaster/frame-sdk');
-                await sdk.actions.openUrl(url);
+                const sdkModule = await import('@farcaster/frame-sdk').catch(() => null);
+                const sdk = (sdkModule?.default || sdkModule) as any;
+                if (sdk?.actions?.openUrl) {
+                    await sdk.actions.openUrl(url);
+                } else {
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                }
             } catch (error) {
                 window.open(url, '_blank', 'noopener,noreferrer');
             }
         },
         close: async () => {
             try {
-                const { default: sdk } = await import('@farcaster/frame-sdk');
-                await sdk.actions.close();
+                const sdkModule = await import('@farcaster/frame-sdk').catch(() => null);
+                const sdk = (sdkModule?.default || sdkModule) as any;
+                if (sdk?.actions?.close) {
+                    await sdk.actions.close();
+                }
             } catch (error) {
                 console.log('Cannot close');
             }
         },
         ready: async () => {
             try {
-                const { default: sdk } = await import('@farcaster/frame-sdk');
-                await sdk.actions.ready();
+                const sdkModule = await import('@farcaster/frame-sdk').catch(() => null);
+                const sdk = (sdkModule?.default || sdkModule) as any;
+                if (sdk?.actions?.ready) {
+                    await sdk.actions.ready();
+                }
             } catch (error) {
                 console.log('Cannot signal ready');
             }
